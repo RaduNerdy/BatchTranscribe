@@ -100,9 +100,10 @@ class LocalDiarizer:
             raise RuntimeError("Invalid speaker model files; rebuild to restore them.")
         self.pipeline = sherpa.OfflineSpeakerDiarization(config)
 
-    def __call__(self, filepath, segments):
-        from faster_whisper.audio import decode_audio
-        audio = decode_audio(filepath, sampling_rate=self.pipeline.sample_rate)
+    def __call__(self, audio, segments):
+        from media_audio import SAMPLE_RATE
+        if self.pipeline.sample_rate != SAMPLE_RATE:
+            raise RuntimeError("Speaker model sample rate does not match transcription audio.")
         output = self.pipeline.process(audio).sort_by_start_time()
         turns = [(turn.start, turn.end, turn.speaker) for turn in output]
         return align_speakers(segments, turns)

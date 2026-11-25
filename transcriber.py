@@ -214,8 +214,8 @@ class BatchTranscriber:
         self.model = WhisperModel(self.model_size, device="cpu", compute_type="int8")
         self._emit("log", "Model loaded on CPU.")
 
-    def _transcribe_file(self, filepath):
-        segments, _ = self.model.transcribe(filepath, beam_size=1 if self.fast else 5, language=self.language, vad_filter=True)
+    def _transcribe_file(self, audio):
+        segments, _ = self.model.transcribe(audio, beam_size=1 if self.fast else 5, language=self.language, vad_filter=True)
         result = []
         for segment in segments:
             if self._cancel.is_set():
@@ -264,20 +264,24 @@ class BatchTranscriber:
 
             try:
                 start_time = time.time()
+                from media_audio import decode_media
+                audio = decode_media(filepath)
+                if self._cancel.is_set():
+                    return
                 try:
-                    segments = self._transcribe_file(filepath)
+                    segments = self._transcribe_file(audio)
                 except Exception as exc:
                     if self.device != "cuda" or self._cancel.is_set():
                         raise
                     self._fallback_cpu(exc)
                     if self._cancel.is_set():
                         return
-                    segments = self._transcribe_file(filepath)
+                    segments = self._transcribe_file(audio)
                 if self._cancel.is_set():
                     return
                 if self.diarizer is not None:
                     self._emit("log", f"Detecting speakers: {basename}")
-                    segments = self.diarizer(filepath, segments)
+                    segments = self.diarizer(audio, segments)
                 if self._cancel.is_set():
                     return
                 elapsed = time.time() - start_time

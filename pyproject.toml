@@ -5,9 +5,9 @@ description = "Whisper-powered batch audio/video transcription"
 requires-python = ">=3.10"
 dependencies = [
     "flet[all]==0.85.2",
-    "faster-whisper>=1.0.0",
+    "faster-whisper==1.2.1",
     "ctranslate2>=4.7,<5",
-    "av>=11.0.0",
+    "av>=17,<20",
     "tokenizers",
     "huggingface-hub",
     "Pillow>=10.0.0",

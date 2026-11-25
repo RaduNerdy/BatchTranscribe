@@ -1,8 +1,8 @@
 # Runtime dependencies (used by `pip install -r requirements.txt` for dev)
 flet[all]==0.85.2
-faster-whisper>=1.0.0
+faster-whisper==1.2.1
 ctranslate2>=4.7,<5
-av>=11.0.0
+av>=17,<20
 tokenizers
 huggingface-hub
 Pillow>=10.0.0

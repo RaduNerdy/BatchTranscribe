@@ -16,6 +16,11 @@ def prepare():
     prepare_models(CACHE)
     from diarization import LocalDiarizer
     LocalDiarizer(CACHE)
+    import unittest
+    suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern="test_media_audio.py")
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    if not result.wasSuccessful() or result.skipped:
+        raise RuntimeError("Audio decoder smoke test failed or was skipped.")
 
 
 def verify(output):
