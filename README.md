@@ -14,7 +14,7 @@ python main.py
 
 Enable **Speaker labels** to export anonymous labels such as `Speaker 1:` and `Speaker 2:` in TXT and SRT files. Labels reset for each recording. Attribution is based on overlapping speech timestamps and is approximate when people speak simultaneously.
 
-From source, install the optional dependencies with `pip install -r requirements-speakers.txt`. Request access to the [Community-1 model](https://huggingface.co/pyannote/speaker-diarization-community-1), then follow its offline setup instructions to download the model into `~/.batchtranscribe/community-1` (or set `BATCHTRANSCRIBE_DIARIZATION_MODEL` to its local directory). Audio processing is local. The base executable does not bundle PyTorch or the gated model; use source mode or build with those optional dependencies installed and included in the package.
+No Hugging Face account or token is needed. The app uses [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/speaker-diarization/index.html) with public segmentation and speaker-clustering models. The Windows builder downloads the weights once, caches them, and includes them with the app. Source runs download them automatically on first use. All audio processing remains local; speaker labels are anonymous and reset per file.
 
 For faster processing, select **Fast decoding** (beam size 1 instead of 5) or use the `turbo` model. Fast decoding may reduce accuracy. Cancellation is checked between generated segments.
 
@@ -74,7 +74,7 @@ MP3, MP4, WAV, FLAC, OGG, M4A, MOV, AVI, MKV, WEBM
 
 ### Windows GPU and publisher trust
 
-CUDA requires a working CUDA 12 cuBLAS and cuDNN 9 runtime, not just an NVIDIA driver. The app checks the required DLLs at startup and retries a failed GPU inference on CPU. Install the matching runtime from NVIDIA, or set `BATCHTRANSCRIBE_CUDA_DIR` to a directory containing the matching NVIDIA runtime DLLs before running `build_windows.bat`. The build copies them into `build/windows/cuda/bin`. Keep the entire Windows output directory together.
+The Windows x64 build automatically installs and bundles NVIDIA's CUDA 12 cuBLAS and cuDNN 9 runtime packages. No separate CUDA toolkit installation or environment variable is required. A compatible NVIDIA GPU and driver are still needed. The builder verifies the runtime files and speaker engine before reporting success. The first build requires internet access and downloads several gigabytes; later builds use the package and model caches. The app checks CUDA at startup and retries failed GPU inference on CPU. Keep the entire Windows output directory together.
 
 Windows Smart App Control may reject unsigned bundled Python DLLs and extension modules. A production release should use a trusted code-signing certificate to sign the unsigned executable and native dependencies, or use a verified, vendor-signed runtime distribution. Do not disable Windows Security to run this app.
 - **Language**: auto-detect, or pin to one of 20 supported languages.

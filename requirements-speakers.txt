@@ -1,2 +1,2 @@
-pyannote.audio>=4,<5
+sherpa-onnx>=1.12,<3
 

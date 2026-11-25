@@ -44,6 +44,8 @@ if errorlevel 1 goto failed
 echo [3/4] Checking backend and build tools...
 "%BATCHTRANSCRIBE_PYTHON%" -c "from transcriber import get_import_error; err=get_import_error(); assert err is None, err; import flet_cli.cli"
 if errorlevel 1 goto failed
+"%BATCHTRANSCRIBE_PYTHON%" prepare_windows_runtime.py
+if errorlevel 1 goto failed
 
 echo [4/4] Building Windows application...
 REM Flet may report success even when its expected build output is absent.
@@ -66,9 +68,10 @@ REM NVIDIA installation or a directory containing trusted NVIDIA packages.
 if defined BATCHTRANSCRIBE_CUDA_DIR (
     powershell -NoProfile -Command "$src=$env:BATCHTRANSCRIBE_CUDA_DIR; $dst=Join-Path $env:OUTPUT 'cuda\bin'; if (-not (Test-Path -LiteralPath $src -PathType Container)) { throw 'CUDA runtime source does not exist' }; New-Item -ItemType Directory -Path $dst -Force | Out-Null; Get-ChildItem -LiteralPath $src -Recurse -File -Filter '*.dll' | Where-Object { $_.Name -match '^(cublas|cudnn|cufft|nvblas|nvrtc|nvJitLink)' -and $_.Name -notlike '*.alt.dll' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $dst $_.Name) -Force }; foreach ($dll in 'cublas64_12.dll','cublasLt64_12.dll','cudnn64_9.dll') { if (-not (Test-Path -LiteralPath (Join-Path $dst $dll))) { throw ('Missing required CUDA runtime file: '+$dll) } }"
     if errorlevel 1 goto failed
-) else (
-    echo No optional CUDA runtime source configured. The app will use CPU if CUDA is unavailable.
 )
+
+"%BATCHTRANSCRIBE_PYTHON%" prepare_windows_runtime.py "%OUTPUT%"
+if errorlevel 1 goto failed
 
 echo.
 echo === Build complete ===

@@ -481,7 +481,7 @@ class App:
                                    fill_color=p["accent_a"])
         self.srt_cb = ft.Checkbox(label=".srt", value=True,
                                    fill_color=p["accent_a"])
-        self.diarize_cb = ft.Checkbox(label="Speaker labels", value=False, tooltip="Requires the optional local speaker model")
+        self.diarize_cb = ft.Checkbox(label="Speaker labels", value=False, tooltip="Detect speakers locally; models download automatically if missing")
         self.fast_cb = ft.Checkbox(label="Fast decoding", value=False, tooltip="Greedy decoding; may reduce accuracy")
 
         return ft.Container(

@@ -6,11 +6,16 @@ requires-python = ">=3.10"
 dependencies = [
     "flet[all]>=0.85.0",
     "faster-whisper>=1.0.0",
-    "ctranslate2>=4.0.0",
+    "ctranslate2>=4.7,<5",
     "av>=11.0.0",
     "tokenizers",
     "huggingface-hub",
     "Pillow>=10.0.0",
+    "sherpa-onnx>=1.12,<3",
+    "nvidia-cublas-cu12==12.9.2.10; sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "nvidia-cudnn-cu12==9.22.0.52; sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "nvidia-cuda-nvrtc-cu12==12.9.86; sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "nvidia-nvjitlink-cu12==12.9.86; sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 
 [build-system]
@@ -18,7 +23,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.optional-dependencies]
-speakers = ["pyannote.audio>=4,<5"]
+speakers = ["sherpa-onnx>=1.12,<3"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
@@ -35,4 +40,7 @@ build_version = "2.0.0"
 build_number = 1
 # Ensure the icon is bundled.
 # Flet auto-detects assets/ directory.
+
+[tool.flet.app]
+exclude = ["tests", "flet-build.log", ".runtime-cache"]
 

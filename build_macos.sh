@@ -17,7 +17,7 @@ source .venv/bin/activate
 
 echo "[2/5] Installing build dependencies..."
 pip install --upgrade pip >/dev/null
-pip install 'flet[all]' pillow >/dev/null
+pip install -r requirements.txt >/dev/null
 
 echo "[3/5] Generating icons (this produces app.iconset for iconutil)..."
 python build_icon.py

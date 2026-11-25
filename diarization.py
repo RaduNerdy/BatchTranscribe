@@ -2,6 +2,52 @@
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import sys
+import shutil
+import tempfile
+import urllib.request
+
+MODEL_RELEASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
+SEGMENTATION_ARCHIVE = "sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
+EMBEDDING_MODEL = "3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+
+
+def prepare_models(directory):
+    """Download public model weights once; never upload recordings."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    segmentation = directory / "segmentation.onnx"
+    embedding = directory / "embedding.onnx"
+    with tempfile.TemporaryDirectory(dir=directory) as temp:
+        temporary = Path(temp)
+        if not segmentation.is_file():
+            import tarfile
+            archive = temporary / SEGMENTATION_ARCHIVE
+            with urllib.request.urlopen(MODEL_RELEASE + "speaker-segmentation-models/" + SEGMENTATION_ARCHIVE, timeout=60) as response, archive.open("wb") as out:
+                shutil.copyfileobj(response, out)
+            with tarfile.open(archive, "r:bz2") as tar:
+                member = tar.getmember("sherpa-onnx-pyannote-segmentation-3-0/model.onnx")
+                if not member.isfile():
+                    raise RuntimeError("Invalid segmentation model archive")
+                with tar.extractfile(member) as source, (temporary / "segmentation.onnx").open("wb") as out:
+                    shutil.copyfileobj(source, out)
+            (temporary / "segmentation.onnx").replace(segmentation)
+        if not embedding.is_file():
+            with urllib.request.urlopen(MODEL_RELEASE + "speaker-recongition-models/" + EMBEDDING_MODEL, timeout=60) as response, (temporary / "embedding.onnx").open("wb") as out:
+                shutil.copyfileobj(response, out)
+            (temporary / "embedding.onnx").replace(embedding)
+    return segmentation, embedding
+
+
+def model_directory():
+    override = os.environ.get("BATCHTRANSCRIBE_DIARIZATION_MODEL")
+    if override:
+        return Path(override)
+    for base in (Path(sys.executable).parent, Path(sys.prefix), Path(__file__).parent):
+        candidate = base / "models" / "speakers"
+        if (candidate / "segmentation.onnx").is_file() and (candidate / "embedding.onnx").is_file():
+            return candidate
+    return Path.home() / ".batchtranscribe" / "speakers"
 
 
 @dataclass(frozen=True)
@@ -37,18 +83,27 @@ def align_speakers(segments, turns):
 
 
 class LocalDiarizer:
-    def __init__(self):
-        model = Path(os.environ.get("BATCHTRANSCRIBE_DIARIZATION_MODEL", str(Path.home() / ".batchtranscribe" / "community-1")))
-        if not model.is_dir():
-            raise RuntimeError("Speaker model not installed. See README: Speaker diarization setup.")
-        from pyannote.audio import Pipeline
-        self.pipeline = Pipeline.from_pretrained(str(model))
+    def __init__(self, directory=None):
+        try:
+            import sherpa_onnx as sherpa
+        except ImportError as exc:
+            raise RuntimeError("Speaker engine missing or blocked. Use the updated Windows build with the bundled speaker engine.") from exc
+        segmentation, embedding = prepare_models(directory if directory is not None else model_directory())
+        config = sherpa.OfflineSpeakerDiarizationConfig(
+            segmentation=sherpa.OfflineSpeakerSegmentationModelConfig(
+                pyannote=sherpa.OfflineSpeakerSegmentationPyannoteModelConfig(model=str(segmentation))),
+            embedding=sherpa.SpeakerEmbeddingExtractorConfig(model=str(embedding)),
+            clustering=sherpa.FastClusteringConfig(num_clusters=-1, threshold=0.5),
+            min_duration_on=0.3, min_duration_off=0.5,
+        )
+        if not config.validate():
+            raise RuntimeError("Invalid speaker model files; rebuild to restore them.")
+        self.pipeline = sherpa.OfflineSpeakerDiarization(config)
 
     def __call__(self, filepath, segments):
-        import torch
         from faster_whisper.audio import decode_audio
-        audio = decode_audio(filepath, sampling_rate=16000)
-        output = self.pipeline({"waveform": torch.from_numpy(audio).unsqueeze(0), "sample_rate": 16000})
-        turns = [(turn.start, turn.end, label) for turn, label in output.exclusive_speaker_diarization]
+        audio = decode_audio(filepath, sampling_rate=self.pipeline.sample_rate)
+        output = self.pipeline.process(audio).sort_by_start_time()
+        turns = [(turn.start, turn.end, turn.speaker) for turn in output]
         return align_speakers(segments, turns)
 

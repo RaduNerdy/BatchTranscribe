@@ -1,11 +1,16 @@
 # Runtime dependencies (used by `pip install -r requirements.txt` for dev)
 flet[all]>=0.85.0
 faster-whisper>=1.0.0
-ctranslate2>=4.0.0
+ctranslate2>=4.7,<5
 av>=11.0.0
 tokenizers
 huggingface-hub
 Pillow>=10.0.0
+sherpa-onnx>=1.12,<3
+nvidia-cublas-cu12==12.9.2.10; sys_platform == 'win32' and platform_machine == 'AMD64'
+nvidia-cudnn-cu12==9.22.0.52; sys_platform == 'win32' and platform_machine == 'AMD64'
+nvidia-cuda-nvrtc-cu12==12.9.86; sys_platform == 'win32' and platform_machine == 'AMD64'
+nvidia-nvjitlink-cu12==12.9.86; sys_platform == 'win32' and platform_machine == 'AMD64'
 
 # Build-time only (used by build_windows.bat / build_macos.sh)
 # flet-cli is auto-installed by `flet build` if missing.

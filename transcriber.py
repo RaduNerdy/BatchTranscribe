@@ -49,10 +49,12 @@ def _add_nvidia_dll_dirs() -> int:
         if not os.path.isdir(nvidia_root):
             continue
         for lib in nvidia_libs:
-            d = os.path.join(nvidia_root, lib, "bin")
-            if os.path.isdir(d):
+            for d in (os.path.join(nvidia_root, lib, "bin"), os.path.join(nvidia_root, lib)):
+                if not os.path.isdir(d):
+                    continue
                 try:
                     _DLL_DIRECTORY_HANDLES.append(os.add_dll_directory(d))
+                    os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
                     added += 1
                 except (OSError, AttributeError):
                     pass
