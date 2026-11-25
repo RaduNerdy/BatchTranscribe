@@ -113,8 +113,10 @@ class App:
         self.running = False
 
         # Detect CUDA up front (no subprocess, no shell)
-        self.cuda_available, self.cuda_message = check_cuda()
-        self.cuda_checked = True
+        self.cuda_available = False
+        self.cuda_message = "Checking transcription backend..."
+        self.cuda_checked = False
+        self.backend_ready = False
 
         # UI references
         self.file_list_col: ft.Column | None = None
@@ -159,15 +161,39 @@ class App:
         self.file_picker = ft.FilePicker()
 
         # Detect faster_whisper import error early so we can show a banner
-        self.import_error = get_import_error()
+        self.import_error = None
 
         self._build_ui()
-        if not self.cuda_available:
-            self._log("warn", self.cuda_message + " Using CPU (int8).")
         self._start_poll()
 
         # Entry animation
         self.page.update()
+        self.page.run_task(self._initialize_backend)
+
+    async def _initialize_backend(self):
+        # Native imports and DLL verification must not block first paint.
+        await asyncio.sleep(0.1)
+        try:
+            self.import_error = await asyncio.to_thread(get_import_error)
+            if self.import_error is None:
+                self.cuda_available, self.cuda_message = await asyncio.to_thread(check_cuda)
+                self.backend_ready = True
+        except Exception as exc:
+            self.import_error = exc
+        self.cuda_checked = True
+        self.device_dd.options = [ft.DropdownOption(d) for d in (["cuda", "cpu"] if self.cuda_available else ["cpu"])]
+        self.device_dd.value = "cuda" if self.cuda_available else "cpu"
+        self.device_dd.update()
+        self.backend_caption.value = "Whisper-powered batch transcription � " + ("CUDA accelerated" if self.cuda_available else "CPU mode")
+        self.backend_caption.update()
+        self.status_label.value = "Backend unavailable" if self.import_error else ("Ready � CUDA" if self.cuda_available else "Ready � CPU")
+        self.status_label.update()
+        self._update_start_enabled()
+        if self.import_error:
+            self._log("error", str(self.import_error))
+            self._show_error_dialog("Backend import failed", str(self.import_error))
+        else:
+            self._log("info" if self.cuda_available else "warn", self.cuda_message)
 
     # ----- detection -----
     @staticmethod
@@ -268,13 +294,13 @@ class App:
             shadow=ft.BoxShadow(blur_radius=20, color=p["accent_a"] + "60"),
         )
 
+        self.backend_caption = ft.Text("Whisper-powered batch transcription � " + ("Checking backend" if not self.cuda_checked else ("CUDA accelerated" if self.cuda_available else "CPU mode")), size=12, color=p["text_secondary"])
         title_block = ft.Column(
             spacing=2,
             controls=[
                 ft.Text(APP_NAME, size=24, weight=ft.FontWeight.BOLD,
                         color=p["text_primary"], font_family=self.bold_font),
-                ft.Text("Whisper-powered batch transcription � " + ("CUDA accelerated" if self.cuda_available else "CPU mode"),
-                        size=12, color=p["text_secondary"]),
+                self.backend_caption,
             ],
         )
 
@@ -640,7 +666,7 @@ class App:
         p = self.palette
         cuda_state = "CUDA" if self.cuda_available else "CPU"
         self.status_label = ft.Text(
-            f"Ready � {cuda_state}",
+            f"Ready � {cuda_state}" if self.cuda_checked else "Checking transcription backend.",
             size=11, color=p["text_secondary"],
         )
         version_label = ft.Text(
@@ -753,7 +779,7 @@ class App:
     def _update_start_enabled(self):
         self.empty_state.visible = not self.files
         self.file_stack.update()
-        enabled = bool(self.files) and not self.running and not self.import_error
+        enabled = bool(self.files) and not self.running and self.backend_ready and not self.import_error
         self.start_btn.disabled = not enabled
         self.start_button_wrap.opacity = 1.0 if enabled else 0.45
         self.start_button_wrap.update()
@@ -833,7 +859,7 @@ class App:
 
     # ----- transcription control -----
     def _start(self, _=None):
-        if not self.files or self.running or self.import_error:
+        if not self.files or self.running or self.import_error or not self.backend_ready:
             return
         try:
             output = Path(self.output_dir) if self.output_dir else self._default_output_dir()

@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import threading
-import ctypes
 from queue import Queue
 
 _DLL_DIRECTORY_HANDLES = []
@@ -79,24 +78,34 @@ def _add_nvidia_dll_dirs() -> int:
 
 # Make sure the loader can find bundled CUDA deps *before* importing faster_whisper,
 # which transitively loads cublas/cudnn via ctranslate2.
-_ADDED_DLLS = _add_nvidia_dll_dirs()
-
-try:
-    from faster_whisper import WhisperModel  # noqa: E402
-    _IMPORT_ERROR: Exception | None = None
-except Exception as _e:  # pragma: no cover - surfaced via log
-    WhisperModel = None  # type: ignore[assignment]
-    _IMPORT_ERROR = _e
+WhisperModel = None
+_IMPORT_ERROR: Exception | None = None
+_IMPORT_CHECKED = False
+_IMPORT_LOCK = threading.Lock()
 
 
 def get_import_error() -> Exception | None:
-    """Public hook so the UI can show a clean error if faster_whisper failed to import."""
+    """Load native dependencies lazily, after the UI has rendered."""
+    global WhisperModel, _IMPORT_ERROR, _IMPORT_CHECKED
+    with _IMPORT_LOCK:
+        if not _IMPORT_CHECKED:
+            try:
+                _add_nvidia_dll_dirs()
+                from faster_whisper import WhisperModel as model_class
+                WhisperModel = model_class
+            except Exception as exc:
+                _IMPORT_ERROR = exc
+            _IMPORT_CHECKED = True
     return _IMPORT_ERROR
 
 
 def check_cuda() -> tuple[bool, str]:
     """A detected GPU is not enough: verify the runtime libraries can load."""
     try:
+        import ctypes
+        error = get_import_error()
+        if error is not None:
+            return False, str(error)
         import ctranslate2
         if ctranslate2.get_cuda_device_count() < 1:
             return False, "No CUDA GPU detected."
@@ -180,6 +189,7 @@ class BatchTranscriber:
         self._cancel.set()
 
     def _load_model(self):
+        get_import_error()
         if WhisperModel is None:
             err = _IMPORT_ERROR or RuntimeError("faster_whisper failed to import")
             self._emit("error", f"Cannot load model - faster_whisper not available: {err}")

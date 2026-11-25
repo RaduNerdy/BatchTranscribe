@@ -1,5 +1,5 @@
 # Runtime dependencies (used by `pip install -r requirements.txt` for dev)
-flet[all]>=0.85.0
+flet[all]==0.85.2
 faster-whisper>=1.0.0
 ctranslate2>=4.7,<5
 av>=11.0.0

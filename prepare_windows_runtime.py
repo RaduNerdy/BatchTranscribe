@@ -21,6 +21,8 @@ def prepare():
 def verify(output):
     output = Path(output)
     packages = output / "site-packages"
+    if not (packages / "flet-0.85.2.dist-info").is_dir() or any(p.name != "flet-0.85.2.dist-info" for p in packages.glob("flet-*.dist-info")):
+        raise RuntimeError("Flet Python/native version mismatch: expected packaged Flet 0.85.2.")
     if not (packages / "sherpa_onnx").is_dir():
         raise RuntimeError("Flet did not package sherpa-onnx; check the build log.")
     cuda = packages / "nvidia"
