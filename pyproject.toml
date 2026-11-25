@@ -1,0 +1,38 @@
+[project]
+name = "batchtranscribe"
+version = "2.0.0"
+description = "Whisper-powered batch audio/video transcription"
+requires-python = ">=3.10"
+dependencies = [
+    "flet[all]>=0.85.0",
+    "faster-whisper>=1.0.0",
+    "ctranslate2>=4.0.0",
+    "av>=11.0.0",
+    "tokenizers",
+    "huggingface-hub",
+    "Pillow>=10.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+speakers = ["pyannote.audio>=4,<5"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.flet]
+# Used by `flet build` when packaging.
+product = "BatchTranscribe"
+project_name = "batchtranscribe"
+org_name = "com.batchtranscribe"
+bundle_id = "com.batchtranscribe.app"
+copyright = "Copyright (c) 2026"
+description = "Whisper-powered batch audio/video transcription"
+build_version = "2.0.0"
+build_number = 1
+# Ensure the icon is bundled.
+# Flet auto-detects assets/ directory.
+
