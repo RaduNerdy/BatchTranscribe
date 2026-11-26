@@ -36,6 +36,8 @@ if errorlevel 1 goto failed
 echo [1/4] Installing dependencies...
 "%BATCHTRANSCRIBE_PYTHON%" -m pip install -r requirements.txt
 if errorlevel 1 goto failed
+"%BATCHTRANSCRIBE_PYTHON%" -m pip install --find-links https://k2-fsa.github.io/sherpa/onnx/cuda.html "sherpa-onnx==1.13.4+cuda12.cudnn9"
+if errorlevel 1 goto failed
 
 echo [2/4] Generating icons...
 "%BATCHTRANSCRIBE_PYTHON%" build_icon.py

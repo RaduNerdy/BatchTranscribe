@@ -10,6 +10,9 @@ sherpa-onnx>=1.12,<3
 nvidia-cublas-cu12==12.9.2.10; sys_platform == 'win32' and platform_machine == 'AMD64'
 nvidia-cudnn-cu12==9.22.0.52; sys_platform == 'win32' and platform_machine == 'AMD64'
 nvidia-cuda-nvrtc-cu12==12.9.86; sys_platform == 'win32' and platform_machine == 'AMD64'
+nvidia-cuda-runtime-cu12==12.9.79; sys_platform == 'win32' and platform_machine == 'AMD64'
+nvidia-cufft-cu12==11.4.1.4; sys_platform == 'win32' and platform_machine == 'AMD64'
+nvidia-curand-cu12==10.3.10.19; sys_platform == 'win32' and platform_machine == 'AMD64'
 nvidia-nvjitlink-cu12==12.9.86; sys_platform == 'win32' and platform_machine == 'AMD64'
 
 # Build-time only (used by build_windows.bat / build_macos.sh)

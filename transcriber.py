@@ -41,7 +41,7 @@ def _add_nvidia_dll_dirs() -> int:
     """
     if sys.platform != "win32":
         return 0
-    nvidia_libs = ("cublas", "cudnn", "cufft", "cuda_nvrtc", "nvjitlink")
+    nvidia_libs = ("cublas", "cudnn", "cufft", "curand", "cuda_runtime", "cuda_nvrtc", "nvjitlink")
     added = 0
     for base in _candidate_nvidia_bases():
         nvidia_root = os.path.join(base, "nvidia")
@@ -91,6 +91,15 @@ def get_import_error() -> Exception | None:
         if not _IMPORT_CHECKED:
             try:
                 _add_nvidia_dll_dirs()
+                if sys.platform == "win32":
+                    from windows_diarization import load_speaker_runtime, runtime_directory
+                    runtime = runtime_directory()
+                    if runtime is not None:
+                        try:
+                            load_speaker_runtime(runtime)
+                        except OSError:
+                            # Report an optional speaker-runtime failure when labels are requested.
+                            pass
                 from faster_whisper import WhisperModel as model_class
                 WhisperModel = model_class
             except Exception as exc:
@@ -165,6 +174,7 @@ class BatchTranscriber:
         self.model = None
         self.model_size = model_size
         self.device = device
+        self.diarization_device = device if sys.platform == "win32" else "cpu"
         self.compute_type = compute_type
         self.language = language
         self.formats = formats
@@ -240,8 +250,11 @@ class BatchTranscriber:
     def transcribe_batch(self, paths: list[str], output_dir: str):
         if self.diarize and self.diarizer is None:
             from diarization import LocalDiarizer
-            self._emit("log", "Loading speaker diarization model...")
-            self.diarizer = LocalDiarizer()
+            self._emit("log", f"Loading speaker diarization on {self.diarization_device.upper()}...")
+            error = get_import_error()
+            if error is not None:
+                raise RuntimeError(f"Could not load transcription dependencies: {error}") from error
+            self.diarizer = LocalDiarizer(device=self.diarization_device)
         if self.model is None:
             self._load_model()
 
@@ -280,7 +293,7 @@ class BatchTranscriber:
                 if self._cancel.is_set():
                     return
                 if self.diarizer is not None:
-                    self._emit("log", f"Detecting speakers: {basename}")
+                    self._emit("log", f"Detecting speakers on {self.diarizer.device.upper()}: {basename}")
                     segments = self.diarizer(audio, segments)
                 if self._cancel.is_set():
                     return

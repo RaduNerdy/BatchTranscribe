@@ -83,12 +83,22 @@ def align_speakers(segments, turns):
 
 
 class LocalDiarizer:
-    def __init__(self, directory=None):
+    def __init__(self, directory=None, device="cpu"):
+        self.device = device
+        segmentation, embedding = prepare_models(directory if directory is not None else model_directory())
+        if sys.platform == "win32":
+            from windows_diarization import WindowsDiarizer, runtime_directory
+            runtime = runtime_directory()
+            if runtime is not None:
+                self.pipeline = WindowsDiarizer(runtime, segmentation, embedding, device)
+                self.get_turns = self.pipeline.turns
+                return
+        if device == "cuda":
+            raise RuntimeError("CUDA speaker diarization requires the Windows CUDA speaker runtime.")
         try:
             import sherpa_onnx as sherpa
         except ImportError as exc:
             raise RuntimeError("Speaker engine missing or blocked. Use the updated Windows build with the bundled speaker engine.") from exc
-        segmentation, embedding = prepare_models(directory if directory is not None else model_directory())
         config = sherpa.OfflineSpeakerDiarizationConfig(
             segmentation=sherpa.OfflineSpeakerSegmentationModelConfig(
                 pyannote=sherpa.OfflineSpeakerSegmentationPyannoteModelConfig(model=str(segmentation))),
@@ -99,12 +109,15 @@ class LocalDiarizer:
         if not config.validate():
             raise RuntimeError("Invalid speaker model files; rebuild to restore them.")
         self.pipeline = sherpa.OfflineSpeakerDiarization(config)
+        self.get_turns = self._cpu_turns
+
+    def _cpu_turns(self, audio):
+        output = self.pipeline.process(audio).sort_by_start_time()
+        return [(turn.start, turn.end, turn.speaker) for turn in output]
 
     def __call__(self, audio, segments):
         from media_audio import SAMPLE_RATE
         if self.pipeline.sample_rate != SAMPLE_RATE:
             raise RuntimeError("Speaker model sample rate does not match transcription audio.")
-        output = self.pipeline.process(audio).sort_by_start_time()
-        turns = [(turn.start, turn.end, turn.speaker) for turn in output]
-        return align_speakers(segments, turns)
+        return align_speakers(segments, self.get_turns(audio))
 

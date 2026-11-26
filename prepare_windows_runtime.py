@@ -1,17 +1,23 @@
 """Prepare/verify the one-click Windows distribution runtime."""
 import sys
+import filecmp
 from pathlib import Path
 import shutil
 
 from diarization import prepare_models
+from windows_diarization import RUNTIME_DLLS, runtime_directory
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".runtime-cache" / "speakers"
-REQUIRED_CUDA = ("cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll")
+REQUIRED_CUDA = ("cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll",
+                 "cudart64_12.dll", "cufft64_11.dll", "curand64_10.dll")
 
 
 def prepare():
-    import sherpa_onnx
+    from transcriber import get_import_error
+    error = get_import_error()
+    if error is not None:
+        raise RuntimeError("Could not load the transcription backend") from error
     print("Downloading speaker models (cached for subsequent builds)...", flush=True)
     prepare_models(CACHE)
     from diarization import LocalDiarizer
@@ -34,6 +40,16 @@ def verify(output):
     missing = [name for name in REQUIRED_CUDA if not any(cuda.rglob(name))]
     if missing:
         raise RuntimeError("Flet did not package CUDA runtime: " + ", ".join(missing))
+    runtime = runtime_directory()
+    if runtime is None:
+        raise RuntimeError("The build Python is missing the Sherpa-ONNX CUDA runtime.")
+    speaker_runtime = output / "speaker-runtime"
+    speaker_runtime.mkdir(parents=True, exist_ok=True)
+    for name in RUNTIME_DLLS:
+        source = runtime / name
+        target = speaker_runtime / name
+        if not target.is_file() or not filecmp.cmp(source, target, shallow=False):
+            shutil.copy2(source, target)
     models = output / "models" / "speakers"
     models.mkdir(parents=True, exist_ok=True)
     for source in prepare_models(CACHE):

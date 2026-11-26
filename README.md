@@ -14,6 +14,8 @@ python main.py
 
 Enable **Speaker labels** to export anonymous labels such as `Speaker 1:` and `Speaker 2:` in TXT and SRT files. Labels reset for each recording. Attribution is based on overlapping speech timestamps and is approximate when people speak simultaneously.
 
+On Windows, select **cuda** with **Speaker labels** to run speaker segmentation and embeddings on the NVIDIA GPU. Speaker clustering and timestamp matching run on the CPU. The log shows the diarization device and reports a missing CUDA provider as an error.
+
 No Hugging Face account or token is needed. The app uses [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/speaker-diarization/index.html) with public segmentation and speaker-clustering models. The Windows builder downloads the weights once, caches them, and includes them with the app. Source runs download them automatically on first use. All audio processing remains local; speaker labels are anonymous and reset per file.
 
 For faster processing, select **Fast decoding** (beam size 1 instead of 5) or use the `turbo` model. Fast decoding may reduce accuracy. Cancellation is checked between generated segments.
